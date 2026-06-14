@@ -1,6 +1,12 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, for example 1.0.1"
+        required: true
+        type: string
   push:
     tags:
       - "v*.*.*"
@@ -16,11 +22,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $eventName = "${{ github.event_name }}"
+          if ($eventName -eq "workflow_dispatch") {
+            $version = "${{ github.event.inputs.version }}".Trim()
+            if ($version.StartsWith("v")) {
+              $version = $version.Substring(1)
+            }
+            if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+              throw "Version must look like 1.0.1 or 1.0.1-beta.1"
+            }
+            $tag = "v$version"
+          } else {
+            $tag = "${{ github.ref_name }}"
+            $version = $tag.TrimStart("v")
+          }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+
       - name: Build package and manifest
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag.TrimStart("v")
+          $tag = "${{ steps.version.outputs.tag }}"
+          $version = "${{ steps.version.outputs.version }}"
           $repo = "${{ github.repository }}"
           $zipName = "resource-search-tool-$version.zip"
           $dist = "dist"
@@ -38,7 +65,10 @@ jobs:
             "launcher.py",
             "start-tool.bat",
             "app-version.json",
-            "SEARCH_SOURCES.md"
+            "README.md",
+            "SEARCH_SOURCES.md",
+            "GITHUB_UPDATE.md",
+            "sources/source-registry.json"
           )
           Compress-Archive -Path $files -DestinationPath "$dist/$zipName" -Force
           $sha = (Get-FileHash "$dist/$zipName" -Algorithm SHA256).Hash.ToLower()
@@ -59,6 +89,9 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: main
+          name: ${{ steps.version.outputs.tag }}
           files: |
             dist/*.zip
             dist/latest.json
