@@ -1,0 +1,8 @@
+{
+  "name": "resource-search-tool",
+  "version": "1.0.0",
+  "channel": "stable",
+  "check_on_start": true,
+  "manifest_url": "https://github.com/wululuhaamo-spec/resource-search-tool/releases/latest/download/latest.json",
+  "allow_prerelease": false
+}

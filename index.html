@@ -1,0 +1,2207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>资源检索小工具</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --panel-2: #eef2f6;
+      --ink: #17212b;
+      --muted: #5d6975;
+      --line: #cad2dc;
+      --line-soft: #e1e7ee;
+      --blue: #2374ab;
+      --blue-2: #e7f2fb;
+      --teal: #148f77;
+      --amber: #a86300;
+      --red: #ba3f4a;
+      --green: #2d7d4f;
+      --shadow: 0 16px 35px rgba(23, 33, 43, 0.12);
+      font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover { border-color: var(--blue); color: var(--blue); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+    }
+
+    .titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 42px;
+      padding: 0 16px;
+      background: #24313f;
+      color: #fff;
+      border-bottom: 1px solid #111820;
+    }
+
+    .titlebar h1 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .titlebar .meta {
+      color: #c7d1db;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(150px, 210px) auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 12px 16px 8px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .searchbox,
+    .selectbox,
+    .small-input {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 10px;
+      outline: none;
+    }
+
+    .searchbox:focus,
+    .selectbox:focus,
+    .small-input:focus,
+    textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(35, 116, 171, 0.14);
+    }
+
+    .primary {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+      font-weight: 700;
+      min-width: 86px;
+    }
+
+    .primary:hover { color: #fff; background: #1e6595; }
+
+    .secondary {
+      background: var(--panel-2);
+      min-width: 76px;
+    }
+
+    .hotline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 0 16px 10px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hotline span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .chip {
+      border: 0;
+      min-height: 26px;
+      padding: 0 8px;
+      background: transparent;
+      font-size: 13px;
+      color: var(--blue);
+      border-radius: 4px;
+    }
+
+    .chip:nth-of-type(2n) { color: var(--teal); }
+    .chip:nth-of-type(3n) { color: var(--amber); }
+    .chip:hover { background: var(--blue-2); }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 0;
+      min-height: 0;
+    }
+
+    .results {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      border-right: 1px solid var(--line);
+    }
+
+    .resultbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 16px;
+      background: #f9fbfd;
+      border-bottom: 1px solid var(--line-soft);
+      min-height: 42px;
+    }
+
+    .resultbar strong {
+      font-size: 14px;
+    }
+
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .filters label {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .filters input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--blue);
+    }
+
+    .small-input {
+      width: 86px;
+      min-height: 30px;
+      padding: 0 8px;
+    }
+
+    .tablewrap {
+      min-height: 0;
+      overflow: auto;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 820px;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line-soft);
+      border-right: 1px solid var(--line-soft);
+      height: 36px;
+      padding: 0 9px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #eef3f8;
+      color: #26313c;
+      font-weight: 700;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    tr:hover td { background: #f3f8fc; }
+    tr.selected td { background: #dcecff; }
+
+    .col-size { width: 90px; }
+    .col-date { width: 112px; }
+    .col-heat { width: 76px; text-align: right; }
+    .col-source { width: 112px; }
+    .col-kind { width: 100px; }
+
+    .side {
+      min-width: 0;
+      background: #fbfcfe;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .side-section {
+      padding: 14px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .side-section h2 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+      margin-bottom: 10px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      min-height: 32px;
+      padding: 7px 9px;
+      outline: none;
+      width: 100%;
+    }
+
+    .field textarea {
+      min-height: 68px;
+      resize: vertical;
+    }
+
+    .row-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .helptext {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .source-list {
+      display: grid;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .source-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 30px;
+      padding: 5px 8px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .source-pill button {
+      border: 0;
+      min-height: 24px;
+      padding: 0 6px;
+      background: transparent;
+      color: var(--red);
+    }
+
+    .bookmarks {
+      overflow: auto;
+      min-height: 0;
+      padding: 12px 14px;
+    }
+
+    .bookmark {
+      display: grid;
+      gap: 4px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .bookmark b {
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .bookmark span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      padding: 18px 0;
+    }
+
+    .statusbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 34px;
+      padding: 0 16px;
+      background: #24313f;
+      color: #dbe4ed;
+      font-size: 12px;
+    }
+
+    .statusbar .ok { color: #8de0b9; }
+
+    .runtime-warning {
+      display: none;
+      padding: 9px 16px;
+      background: #fff4d7;
+      border-bottom: 1px solid #e1b84f;
+      color: #5b4310;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .runtime-warning.show {
+      display: block;
+    }
+
+    .context-menu {
+      position: fixed;
+      z-index: 10;
+      width: 190px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      display: none;
+      padding: 5px;
+      border-radius: 6px;
+    }
+
+    .context-menu button {
+      width: 100%;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      text-align: left;
+      min-height: 32px;
+      padding: 0 9px;
+      color: var(--ink);
+    }
+
+    .context-menu button:hover {
+      background: var(--blue-2);
+      color: var(--blue);
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 48px;
+      background: #14202b;
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 160ms ease, transform 160ms ease;
+      font-size: 13px;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    @media (max-width: 980px) {
+      .toolbar {
+        grid-template-columns: 1fr 150px;
+      }
+
+      .toolbar .primary,
+      .toolbar .secondary {
+        width: 100%;
+      }
+
+      .main {
+        grid-template-columns: 1fr;
+      }
+
+      .results {
+        border-right: 0;
+      }
+
+      .side {
+        border-top: 1px solid var(--line);
+        grid-template-rows: auto auto auto;
+      }
+
+      .bookmarks {
+        max-height: 210px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .titlebar {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 9px 12px;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+        padding: 10px 12px 8px;
+      }
+
+      .hotline,
+      .resultbar,
+      .statusbar {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .resultbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .filters {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="titlebar">
+      <h1>资源检索小工具</h1>
+      <div class="meta">本地版 v0.1 | 数据保存在当前浏览器</div>
+    </header>
+
+    <section class="toolbar" aria-label="搜索工具栏">
+      <input id="keyword" class="searchbox" type="search" placeholder="输入关键词，例如 ubuntu、字体、公开课" autocomplete="off" />
+      <select id="sourceFilter" class="selectbox" aria-label="资源库">
+        <option value="all">全部资源库</option>
+      </select>
+      <button id="searchBtn" class="primary">搜索</button>
+      <button id="pauseBtn" class="secondary">清空</button>
+    </section>
+
+    <section class="hotline" aria-label="常用关键词">
+      <span>热搜：</span>
+      <button class="chip" data-keyword="ubuntu">ubuntu</button>
+      <button class="chip" data-keyword="公开课">公开课</button>
+      <button class="chip" data-keyword="字体">字体</button>
+      <button class="chip" data-keyword="电子书">电子书</button>
+      <button class="chip" data-keyword="开源软件">开源软件</button>
+      <button class="chip" data-keyword="素材">素材</button>
+    </section>
+
+    <section id="runtimeWarning" class="runtime-warning">
+      当前是直接打开 HTML 文件，很多在线源和网盘/磁力接口会被浏览器拦截。请双击 `start-tool.bat` 后使用 `http://127.0.0.1:8766/index.html`。
+    </section>
+
+    <main class="main">
+      <section class="results">
+        <div class="resultbar">
+          <strong id="summary">搜索结果：准备就绪</strong>
+          <div class="filters">
+            <label><input id="exactMatch" type="checkbox" /> 精准匹配</label>
+            <label><input id="regexMatch" type="checkbox" /> 正则筛选</label>
+            <label><input id="onlineSources" type="checkbox" checked /> 在线公开源</label>
+            <label><input id="hideInvalid" type="checkbox" checked /> 屏蔽失效</label>
+            <label>最低热度 <input id="minHeat" class="small-input" type="number" min="0" step="1" value="0" /></label>
+          </div>
+        </div>
+        <div class="tablewrap">
+          <table aria-label="资源列表">
+            <thead>
+              <tr>
+                <th class="col-size" data-sort="size">大小</th>
+                <th class="col-date" data-sort="date">更新时间</th>
+                <th class="col-heat" data-sort="heat">热度</th>
+                <th data-sort="title">标题</th>
+                <th class="col-source" data-sort="source">资源库</th>
+                <th class="col-kind" data-sort="kind">类型</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="side" aria-label="资源管理">
+        <section class="side-section">
+          <h2>添加资源</h2>
+          <div class="field">
+            <label for="newTitle">标题</label>
+            <input id="newTitle" placeholder="例如：团队资料包 2026" />
+          </div>
+          <div class="field">
+            <label for="newLink">链接</label>
+            <textarea id="newLink" placeholder="粘贴你有权使用的 HTTP、网盘或 magnet 链接"></textarea>
+          </div>
+          <div class="field">
+            <label for="newMeta">大小 / 类型 / 资源库</label>
+            <input id="newMeta" placeholder="例如：2.1 GB / 文档 / 我的资源库" />
+          </div>
+          <div class="row-buttons">
+            <button id="addBtn" class="primary">添加</button>
+            <button id="importBtn">导入</button>
+          </div>
+          <input id="importFile" class="file-input" type="file" accept="application/json" />
+        </section>
+
+        <section class="side-section">
+          <h2>外部接口源</h2>
+          <div class="field">
+            <label for="connectorType">接口类型</label>
+            <select id="connectorType">
+              <option value="pansou">PanSou 兼容搜索</option>
+              <option value="alist">AList / OpenList 搜索</option>
+              <option value="searxng">SearXNG 元搜索</option>
+              <option value="torznab">Torznab / Jackett / Prowlarr</option>
+              <option value="json">通用 JSON GET</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="connectorName">显示名称</label>
+            <input id="connectorName" placeholder="例如：我的网盘索引" />
+          </div>
+          <div class="field">
+            <label for="connectorUrl">接口地址</label>
+            <input id="connectorUrl" placeholder="例如：http://localhost:8888" />
+          </div>
+          <div class="field">
+            <label for="connectorToken">令牌 / 路径</label>
+            <input id="connectorToken" placeholder="AList token 或通用 JSON 路径，可留空" />
+          </div>
+          <div class="row-buttons">
+            <button id="addConnectorBtn" class="primary">接入</button>
+            <button id="clearConnectorBtn">清空</button>
+          </div>
+          <p class="helptext">建议接自建或授权接口。SearXNG 填根地址；Torznab 可填完整查询模板，如 `http://host/api?t=search&q={q}&apikey=xxx`。</p>
+          <div id="connectorList" class="source-list"></div>
+        </section>
+
+        <section class="bookmarks">
+          <h2>收藏夹</h2>
+          <div id="bookmarkList"></div>
+        </section>
+
+        <section class="side-section">
+          <div class="row-buttons">
+            <button id="exportBtn">导出数据</button>
+            <button id="clearCustomBtn">清空自建</button>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="statusbar">
+      <span id="statusText">请搜索或添加自己的合法资源。</span>
+      <span id="doneText" class="ok">操作完成</span>
+    </footer>
+  </div>
+
+  <div id="contextMenu" class="context-menu" role="menu">
+    <button data-action="open">打开资源</button>
+    <button data-action="copyLink">复制链接</button>
+    <button data-action="copyTitle">复制名称</button>
+    <button data-action="favorite">添加到收藏夹</button>
+    <button data-action="report">标记为失效</button>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const STORAGE_KEY = "local-resource-search-tool-v01";
+    const BOOKMARK_KEY = "local-resource-search-bookmarks-v01";
+    const CUSTOM_SOURCE_KEY = "local-resource-search-custom-sources-v01";
+
+    const seedData = [
+      {
+        id: "seed-ubuntu",
+        title: "Ubuntu 24.04 LTS Desktop ISO",
+        source: "开源镜像",
+        kind: "系统镜像",
+        sizeText: "5.8 GB",
+        size: 5.8,
+        date: "2026-02-20",
+        heat: 930,
+        link: "https://releases.ubuntu.com/24.04/",
+        tags: "linux ubuntu iso open source",
+        valid: true,
+        custom: false
+      },
+      {
+        id: "seed-debian",
+        title: "Debian 安装镜像下载页",
+        source: "开源镜像",
+        kind: "系统镜像",
+        sizeText: "页面",
+        size: 0,
+        date: "2025-08-09",
+        heat: 710,
+        link: "https://www.debian.org/distrib/",
+        tags: "linux debian iso open source",
+        valid: true,
+        custom: false
+      },
+      {
+        id: "seed-libreoffice",
+        title: "LibreOffice 办公套件",
+        source: "开源软件",
+        kind: "应用软件",
+        sizeText: "页面",
+        size: 0,
+        date: "2025-12-03",
+        heat: 618,
+        link: "https://www.libreoffice.org/download/download-libreoffice/",
+        tags: "office writer calc presentation open source",
+        valid: true,
+        custom: false
+      },
+      {
+        id: "seed-gutenberg",
+        title: "Project Gutenberg 公共领域电子书",
+        source: "公共领域",
+        kind: "电子书",
+        sizeText: "合集",
+        size: 0,
+        date: "2026-01-05",
+        heat: 552,
+        link: "https://www.gutenberg.org/",
+        tags: "book ebook public domain literature",
+        valid: true,
+        custom: false
+      },
+      {
+        id: "seed-blender",
+        title: "Blender Open Movies 开放动画素材",
+        source: "开放素材",
+        kind: "视频素材",
+        sizeText: "合集",
+        size: 0,
+        date: "2025-10-18",
+        heat: 488,
+        link: "https://studio.blender.org/films/",
+        tags: "video movie blender asset creative commons",
+        valid: true,
+        custom: false
+      },
+      {
+        id: "seed-font",
+        title: "思源黑体 Source Han Sans",
+        source: "开放字体",
+        kind: "字体",
+        sizeText: "约 150 MB",
+        size: 0.15,
+        date: "2025-05-12",
+        heat: 433,
+        link: "https://github.com/adobe-fonts/source-han-sans",
+        tags: "font source han sans noto chinese open source",
+        valid: true,
+        custom: false
+      },
+      {
+        id: "seed-archive",
+        title: "Internet Archive 公开资料馆",
+        source: "公共领域",
+        kind: "资料合集",
+        sizeText: "合集",
+        size: 0,
+        date: "2026-03-22",
+        heat: 386,
+        link: "https://archive.org/",
+        tags: "archive public domain book audio video",
+        valid: true,
+        custom: false
+      },
+      {
+        id: "seed-course",
+        title: "MIT OpenCourseWare 公开课",
+        source: "公开课",
+        kind: "课程",
+        sizeText: "页面",
+        size: 0,
+        date: "2026-04-02",
+        heat: 336,
+        link: "https://ocw.mit.edu/",
+        tags: "course education lecture mit open course",
+        valid: true,
+        custom: false
+      }
+    ];
+
+    const markdownSources = [
+      {
+        id: "zh-books",
+        source: "中文编程书单",
+        label: "justjavac/free-programming-books-zh_CN",
+        kind: "电子书",
+        home: "https://github.com/justjavac/free-programming-books-zh_CN",
+        raw: "https://raw.githubusercontent.com/justjavac/free-programming-books-zh_CN/master/README.md"
+      },
+      {
+        id: "zh-courses",
+        source: "中文公开课清单",
+        label: "apachecn/awesome-cs-courses-zh",
+        kind: "课程",
+        home: "https://github.com/apachecn/awesome-cs-courses-zh",
+        raw: "https://raw.githubusercontent.com/apachecn/awesome-cs-courses-zh/master/README.md"
+      },
+      {
+        id: "zh-llm",
+        source: "中文 AI/LLM 资源",
+        label: "AiHubCN/Awesome-Chinese-LLM",
+        kind: "AI 资源",
+        home: "https://github.com/AiHubCN/Awesome-Chinese-LLM",
+        raw: "https://raw.githubusercontent.com/AiHubCN/Awesome-Chinese-LLM/main/README.md"
+      },
+      {
+        id: "zh-apis",
+        source: "中文 API 清单",
+        label: "llf007/public-apis-cn",
+        kind: "API",
+        home: "https://github.com/llf007/public-apis-cn",
+        raw: "https://raw.githubusercontent.com/llf007/public-apis-cn/master/README.md"
+      },
+      {
+        id: "zh-sites",
+        source: "程序员网站清单",
+        label: "tuteng/Best-websites-a-programmer-should-visit-zh",
+        kind: "网站",
+        home: "https://github.com/tuteng/Best-websites-a-programmer-should-visit-zh",
+        raw: "https://raw.githubusercontent.com/tuteng/Best-websites-a-programmer-should-visit-zh/master/README.md"
+      },
+      {
+        id: "zh-nlp",
+        source: "中文 NLP 资源",
+        label: "fighting41love/funNLP",
+        kind: "数据集/工具",
+        home: "https://github.com/fighting41love/funNLP",
+        raw: "https://raw.githubusercontent.com/fighting41love/funNLP/master/README.md"
+      }
+    ];
+
+    const onlineSources = [
+      { id: "github-cn", source: "GitHub 中文开源", label: "GitHub 中文开源项目", search: searchGithubChineseRepos },
+      { id: "gitee", source: "Gitee 开源项目", label: "Gitee 国内开源项目", search: searchGiteeRepos },
+      { id: "hf-models", source: "Hugging Face 模型", label: "Hugging Face Models", search: searchHuggingFaceModels },
+      { id: "hf-datasets", source: "Hugging Face 数据集", label: "Hugging Face Datasets", search: searchHuggingFaceDatasets },
+      { id: "hf-spaces", source: "Hugging Face Spaces", label: "Hugging Face Spaces", search: searchHuggingFaceSpaces },
+      { id: "npm", source: "npm 软件包", label: "npm Registry", search: searchNpmPackages },
+      { id: "maven", source: "Maven 软件包", label: "Maven Central", search: searchMavenPackages },
+      { id: "dockerhub", source: "Docker Hub 镜像", label: "Docker Hub", search: searchDockerHub },
+      { id: "datagovhk", source: "香港开放数据", label: "DATA.GOV.HK", search: searchDataGovHK },
+      { id: "openverse-img", source: "Openverse 图片", label: "Openverse Images", search: searchOpenverseImages },
+      { id: "openverse-audio", source: "Openverse 音频", label: "Openverse Audio", search: searchOpenverseAudio },
+      ...markdownSources.map(config => ({
+        id: config.id,
+        source: config.source,
+        label: config.label,
+        search: keyword => searchMarkdownSource(keyword, config)
+      })),
+      { id: "openalex", source: "OpenAlex", label: "OpenAlex 学术资料", search: searchOpenAlex },
+      { id: "openlibrary", source: "Open Library", label: "Open Library 图书", search: searchOpenLibrary },
+      { id: "commons", source: "Wikimedia Commons", label: "Wikimedia Commons 媒体", search: searchWikimediaCommons },
+      { id: "crossref", source: "Crossref", label: "Crossref 论文元数据", search: searchCrossref },
+      { id: "gutenberg", source: "Project Gutenberg", label: "Project Gutenberg 电子书", search: searchGutendex },
+      { id: "loc", source: "Library of Congress", label: "Library of Congress 馆藏", search: searchLibraryOfCongress },
+      { id: "archive", source: "Internet Archive", label: "Internet Archive 公开资料", search: searchInternetArchive }
+    ];
+
+    let customData = loadJson(STORAGE_KEY, []);
+    let bookmarks = loadJson(BOOKMARK_KEY, []);
+    let customSourceConfigs = loadJson(CUSTOM_SOURCE_KEY, []);
+    let sortState = { key: "heat", direction: "desc" };
+    let currentRows = [];
+    let selectedId = null;
+    let searchToken = 0;
+    const remoteCache = new Map();
+    const markdownCache = new Map();
+
+    const dom = {
+      keyword: document.querySelector("#keyword"),
+      sourceFilter: document.querySelector("#sourceFilter"),
+      searchBtn: document.querySelector("#searchBtn"),
+      pauseBtn: document.querySelector("#pauseBtn"),
+      exactMatch: document.querySelector("#exactMatch"),
+      regexMatch: document.querySelector("#regexMatch"),
+      onlineSources: document.querySelector("#onlineSources"),
+      hideInvalid: document.querySelector("#hideInvalid"),
+      minHeat: document.querySelector("#minHeat"),
+      rows: document.querySelector("#rows"),
+      summary: document.querySelector("#summary"),
+      statusText: document.querySelector("#statusText"),
+      doneText: document.querySelector("#doneText"),
+      runtimeWarning: document.querySelector("#runtimeWarning"),
+      contextMenu: document.querySelector("#contextMenu"),
+      toast: document.querySelector("#toast"),
+      newTitle: document.querySelector("#newTitle"),
+      newLink: document.querySelector("#newLink"),
+      newMeta: document.querySelector("#newMeta"),
+      addBtn: document.querySelector("#addBtn"),
+      importBtn: document.querySelector("#importBtn"),
+      importFile: document.querySelector("#importFile"),
+      exportBtn: document.querySelector("#exportBtn"),
+      clearCustomBtn: document.querySelector("#clearCustomBtn"),
+      connectorType: document.querySelector("#connectorType"),
+      connectorName: document.querySelector("#connectorName"),
+      connectorUrl: document.querySelector("#connectorUrl"),
+      connectorToken: document.querySelector("#connectorToken"),
+      addConnectorBtn: document.querySelector("#addConnectorBtn"),
+      clearConnectorBtn: document.querySelector("#clearConnectorBtn"),
+      connectorList: document.querySelector("#connectorList"),
+      bookmarkList: document.querySelector("#bookmarkList")
+    };
+
+    function loadJson(key, fallback) {
+      try {
+        return JSON.parse(localStorage.getItem(key)) || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function saveJson(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function allData() {
+      return [...seedData, ...customData];
+    }
+
+    function fillSources() {
+      const selected = dom.sourceFilter.value || "all";
+      const sources = [...new Set([
+        ...allData().map(item => item.source),
+        ...onlineSources.map(item => item.source),
+        ...customSourceConfigs.map(item => item.name)
+      ])].sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+      dom.sourceFilter.innerHTML = '<option value="all">全部资源库</option>';
+      for (const source of sources) {
+        const option = document.createElement("option");
+        option.value = source;
+        option.textContent = source;
+        dom.sourceFilter.appendChild(option);
+      }
+      dom.sourceFilter.value = sources.includes(selected) ? selected : "all";
+    }
+
+    function normalize(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function isMatch(item, rawKeyword) {
+      const keyword = normalize(rawKeyword);
+      if (!keyword) return true;
+      const haystack = normalize(`${item.title} ${item.source} ${item.kind} ${item.tags}`);
+      if (dom.regexMatch.checked) {
+        try {
+          return new RegExp(rawKeyword, "i").test(haystack);
+        } catch {
+          setStatus("正则表达式格式不正确，已按普通关键词处理。");
+          return haystack.includes(keyword);
+        }
+      }
+      if (dom.exactMatch.checked) {
+        return haystack.includes(keyword);
+      }
+      return keyword.split(/\s+/).every(part => haystack.includes(part));
+    }
+
+    function compareRows(a, b) {
+      const key = sortState.key;
+      const direction = sortState.direction === "asc" ? 1 : -1;
+      let left = a[key];
+      let right = b[key];
+      if (key === "date") {
+        left = new Date(a.date).getTime();
+        right = new Date(b.date).getTime();
+      }
+      if (typeof left === "number" && typeof right === "number") {
+        return (left - right) * direction;
+      }
+      return String(left).localeCompare(String(right), "zh-Hans-CN") * direction;
+    }
+
+    function applyFilters(rows, keyword) {
+      const source = dom.sourceFilter.value;
+      const minHeat = Number(dom.minHeat.value || 0);
+      return rows
+        .filter(item => source === "all" || item.source === source)
+        .filter(item => !dom.hideInvalid.checked || item.valid)
+        .filter(item => Number(item.heat || 0) >= minHeat)
+        .filter(item => isMatch(item, keyword))
+        .sort(compareRows);
+    }
+
+    async function search() {
+      const token = ++searchToken;
+      const keyword = dom.keyword.value.trim();
+      currentRows = applyFilters(allData(), keyword);
+      renderRows();
+      dom.summary.textContent = `搜索结果：共找到 ${currentRows.length} 条资源`;
+      setStatus(keyword ? `关键词：${keyword}` : "已显示全部资源。");
+
+      if (!keyword || !dom.onlineSources.checked) return;
+
+      dom.searchBtn.disabled = true;
+      dom.doneText.textContent = "在线搜索中";
+      setStatus(`本地找到 ${currentRows.length} 条，正在查询在线公开源。`);
+
+      try {
+        const onlineRows = await searchOnlineSources(keyword, dom.sourceFilter.value);
+        if (token !== searchToken) return;
+        currentRows = applyFilters([...allData(), ...onlineRows], keyword);
+        renderRows();
+        dom.summary.textContent = `搜索结果：共找到 ${currentRows.length} 条资源`;
+        const sources = [...new Set(onlineRows.map(item => item.source))].join("、") || "无";
+        const failed = (searchOnlineSources.lastFailed || []).join("、");
+        setStatus(`在线源返回 ${onlineRows.length} 条：${sources}${failed ? `；暂不可用：${failed}` : ""}`);
+      } finally {
+        if (token === searchToken) {
+          dom.searchBtn.disabled = false;
+          dom.doneText.textContent = "操作完成";
+        }
+      }
+    }
+
+    async function searchOnlineSources(keyword, sourceFilter) {
+      const customAdapters = customSourceConfigs.map(config => ({
+        id: `custom-${config.id}`,
+        source: config.name,
+        label: config.name,
+        search: query => searchCustomConnector(query, config)
+      }));
+      const adapters = [...onlineSources, ...customAdapters]
+        .filter(item => sourceFilter === "all" || item.source === sourceFilter);
+      const groups = await Promise.all(adapters.map(async adapter => {
+        try {
+          return { ok: true, label: adapter.label, rows: await withTimeout(cachedOnlineSearch(adapter, keyword), 9000) };
+        } catch {
+          return { ok: false, label: adapter.label, rows: [] };
+        }
+      }));
+      searchOnlineSources.lastFailed = groups.filter(item => !item.ok).map(item => item.label);
+      return dedupeRows(groups.flatMap(item => item.rows));
+    }
+
+    async function cachedOnlineSearch(adapter, keyword) {
+      const key = `${adapter.id}:${normalize(keyword)}`;
+      if (remoteCache.has(key)) return remoteCache.get(key);
+      const rows = await adapter.search(keyword);
+      const cleaned = rows.filter(item => item.title && item.link).slice(0, 20);
+      remoteCache.set(key, cleaned);
+      return cleaned;
+    }
+
+    function withTimeout(promise, timeoutMs) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => window.setTimeout(() => reject(new Error("Timeout")), timeoutMs))
+      ]);
+    }
+
+    async function fetchJson(url, options = {}) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 5500);
+      try {
+        const response = await fetch(url, {
+          signal: controller.signal,
+          ...options,
+          headers: {
+            Accept: "application/json",
+            ...(options.headers || {})
+          }
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } finally {
+        window.clearTimeout(timer);
+      }
+    }
+
+    async function fetchText(url, options = {}) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 5500);
+      try {
+        const response = await fetch(url, {
+          signal: controller.signal,
+          ...options,
+          headers: {
+            Accept: "text/plain, text/markdown, */*",
+            ...(options.headers || {})
+          }
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.text();
+      } finally {
+        window.clearTimeout(timer);
+      }
+    }
+
+    async function requestJson(url, options = {}) {
+      try {
+        return await fetchJson(url, options);
+      } catch (error) {
+        if (!canUseLocalProxy()) throw error;
+        return await fetchJson("/proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url,
+            method: options.method || "GET",
+            headers: options.headers || {},
+            body: options.body || null
+          })
+        });
+      }
+    }
+
+    async function requestText(url, options = {}) {
+      try {
+        return await fetchText(url, options);
+      } catch (error) {
+        if (!canUseLocalProxy()) throw error;
+        const payload = await fetchJson("/proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url,
+            method: options.method || "GET",
+            headers: options.headers || {},
+            body: options.body || null,
+            responseType: "text"
+          })
+        });
+        return payload.text || "";
+      }
+    }
+
+    function canUseLocalProxy() {
+      return location.protocol === "http:" && /^(localhost|127\.0\.0\.1)$/i.test(location.hostname);
+    }
+
+    function renderRuntimeWarning() {
+      const isFileMode = location.protocol === "file:";
+      dom.runtimeWarning.classList.toggle("show", isFileMode);
+      if (isFileMode) {
+        setStatus("当前是文件模式，在线源可能被浏览器拦截。请用 start-tool.bat 启动。");
+      }
+    }
+
+    function dedupeRows(rows) {
+      const seen = new Set();
+      return rows.filter(item => {
+        const key = normalize(item.link || item.title);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function remoteItem(prefix, value) {
+      const title = text(value.title, "未命名资源");
+      const link = text(value.link, "");
+      return {
+        id: stableId(prefix, link || title),
+        title,
+        source: text(value.source, "在线公开源"),
+        kind: text(value.kind, "资料"),
+        sizeText: text(value.sizeText, "页面"),
+        size: Number(value.size || 0),
+        date: cleanDate(value.date),
+        heat: Number(value.heat || 0),
+        link,
+        tags: text(value.tags, title),
+        valid: true,
+        custom: false,
+        remote: true
+      };
+    }
+
+    function stableId(prefix, textValue) {
+      let hash = 0;
+      for (const char of String(textValue)) {
+        hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0;
+      }
+      return `${prefix}-${Math.abs(hash)}`;
+    }
+
+    function text(value, fallback) {
+      const output = Array.isArray(value) ? value.filter(Boolean).join(" ") : value;
+      return String(output || fallback || "").trim();
+    }
+
+    function cleanDate(value) {
+      const raw = text(value, "");
+      if (/^\d{4}$/.test(raw)) return `${raw}-01-01`;
+      if (/^\d{4}-\d{2}$/.test(raw)) return `${raw}-01`;
+      if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+      const parsed = new Date(raw);
+      if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function bytesText(bytes) {
+      const value = Number(bytes || 0);
+      if (!value) return "媒体";
+      if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toFixed(1)} GB`;
+      if (value >= 1024 ** 2) return `${(value / 1024 ** 2).toFixed(1)} MB`;
+      if (value >= 1024) return `${(value / 1024).toFixed(1)} KB`;
+      return `${value} B`;
+    }
+
+    function dateFromParts(dateContainer) {
+      const parts = dateContainer && dateContainer["date-parts"] && dateContainer["date-parts"][0];
+      if (!parts || !parts.length) return "";
+      const year = String(parts[0]).padStart(4, "0");
+      const month = String(parts[1] || 1).padStart(2, "0");
+      const day = String(parts[2] || 1).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    async function searchGithubChineseRepos(keyword) {
+      const hasChinese = /[\u4e00-\u9fff]/.test(keyword);
+      const query = hasChinese
+        ? `${keyword} in:name,description,readme`
+        : `${keyword} 中文 in:name,description,readme`;
+      const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=12`;
+      const data = await requestJson(url);
+      return (data.items || []).map(repo => remoteItem("github-cn", {
+        title: `${repo.full_name}${repo.description ? ` - ${repo.description}` : ""}`,
+        source: "GitHub 中文开源",
+        kind: repo.language || "GitHub 项目",
+        sizeText: `${repo.stargazers_count || 0} stars`,
+        date: repo.updated_at,
+        heat: repo.stargazers_count,
+        link: repo.html_url,
+        tags: [repo.name, repo.full_name, repo.description, text(repo.topics, ""), repo.language].join(" ")
+      }));
+    }
+
+    async function searchGiteeRepos(keyword) {
+      const url = `https://gitee.com/api/v5/search/repositories?q=${encodeURIComponent(keyword)}&page=1&per_page=12`;
+      const data = await requestJson(url);
+      return (Array.isArray(data) ? data : []).map(repo => remoteItem("gitee", {
+        title: `${repo.full_name || repo.human_name || repo.name}${repo.description ? ` - ${repo.description}` : ""}`,
+        source: "Gitee 开源项目",
+        kind: repo.language || "Gitee 项目",
+        sizeText: `${repo.stargazers_count || 0} stars`,
+        date: repo.updated_at || repo.pushed_at,
+        heat: repo.stargazers_count || repo.watchers_count,
+        link: repo.html_url,
+        tags: [repo.name, repo.full_name, repo.description, repo.language].join(" ")
+      }));
+    }
+
+    async function searchHuggingFaceModels(keyword) {
+      const url = `https://huggingface.co/api/models?search=${encodeURIComponent(keyword)}&limit=12`;
+      const data = await requestJson(url);
+      return (Array.isArray(data) ? data : []).map(model => remoteItem("hf-models", {
+        title: model.modelId || model.id,
+        source: "Hugging Face 模型",
+        kind: "模型",
+        sizeText: `${model.downloads || 0} downloads`,
+        date: model.lastModified,
+        heat: model.likes || model.downloads,
+        link: `https://huggingface.co/${model.modelId || model.id}`,
+        tags: [model.modelId, text(model.tags, ""), model.pipeline_tag, model.library_name].join(" ")
+      }));
+    }
+
+    async function searchHuggingFaceDatasets(keyword) {
+      const url = `https://huggingface.co/api/datasets?search=${encodeURIComponent(keyword)}&limit=12`;
+      const data = await requestJson(url);
+      return (Array.isArray(data) ? data : []).map(dataset => remoteItem("hf-datasets", {
+        title: dataset.id,
+        source: "Hugging Face 数据集",
+        kind: "数据集",
+        sizeText: `${dataset.downloads || 0} downloads`,
+        date: dataset.lastModified,
+        heat: dataset.likes || dataset.downloads,
+        link: `https://huggingface.co/datasets/${dataset.id}`,
+        tags: [dataset.id, text(dataset.tags, "")].join(" ")
+      }));
+    }
+
+    async function searchHuggingFaceSpaces(keyword) {
+      const url = `https://huggingface.co/api/spaces?search=${encodeURIComponent(keyword)}&limit=12`;
+      const data = await requestJson(url);
+      return (Array.isArray(data) ? data : []).map(space => remoteItem("hf-spaces", {
+        title: space.id,
+        source: "Hugging Face Spaces",
+        kind: "应用/演示",
+        sizeText: `${space.likes || 0} likes`,
+        date: space.lastModified,
+        heat: space.likes,
+        link: `https://huggingface.co/spaces/${space.id}`,
+        tags: [space.id, text(space.tags, ""), space.sdk].join(" ")
+      }));
+    }
+
+    async function searchNpmPackages(keyword) {
+      const url = `https://registry.npmjs.com/-/v1/search?text=${encodeURIComponent(keyword)}&size=12`;
+      const data = await requestJson(url);
+      return (data.objects || []).map(entry => {
+        const pkg = entry.package || {};
+        return remoteItem("npm", {
+          title: `${pkg.name}${pkg.description ? ` - ${pkg.description}` : ""}`,
+          source: "npm 软件包",
+          kind: "JavaScript 包",
+          sizeText: "npm",
+          date: pkg.date,
+          heat: Math.round((entry.score && entry.score.final || 0) * 1000),
+          link: pkg.links && (pkg.links.npm || pkg.links.repository),
+          tags: [pkg.name, pkg.description, text(pkg.keywords, ""), text(pkg.publisher && pkg.publisher.username, "")].join(" ")
+        });
+      });
+    }
+
+    async function searchMavenPackages(keyword) {
+      const url = `https://search.maven.org/solrsearch/select?q=${encodeURIComponent(keyword)}&rows=12&wt=json`;
+      const data = await requestJson(url);
+      const docs = data.response && data.response.docs || [];
+      return docs.map(pkg => remoteItem("maven", {
+        title: `${pkg.g}:${pkg.a}`,
+        source: "Maven 软件包",
+        kind: pkg.p || "Java 包",
+        sizeText: `${pkg.versionCount || 0} versions`,
+        date: pkg.timestamp,
+        heat: pkg.versionCount,
+        link: `https://search.maven.org/artifact/${pkg.g}/${pkg.a}`,
+        tags: [pkg.g, pkg.a, pkg.latestVersion, text(pkg.ec, "")].join(" ")
+      }));
+    }
+
+    async function searchDockerHub(keyword) {
+      const url = `https://hub.docker.com/v2/search/repositories/?query=${encodeURIComponent(keyword)}&page_size=12`;
+      const data = await requestJson(url);
+      return (data.results || []).map(image => remoteItem("dockerhub", {
+        title: `${image.repo_name}${image.short_description ? ` - ${image.short_description}` : ""}`,
+        source: "Docker Hub 镜像",
+        kind: "容器镜像",
+        sizeText: `${image.pull_count || 0} pulls`,
+        date: image.last_updated || image.updated_at,
+        heat: image.star_count || image.pull_count,
+        link: `https://hub.docker.com/r/${image.repo_name}`,
+        tags: [image.repo_name, image.short_description, image.publisher && image.publisher.name].join(" ")
+      }));
+    }
+
+    async function searchDataGovHK(keyword) {
+      const url = `https://data.gov.hk/tc-data/api/3/action/package_search?q=${encodeURIComponent(keyword)}&rows=12`;
+      const data = await requestJson(url);
+      const results = data.result && data.result.results || [];
+      return results.map(pkg => remoteItem("datagovhk", {
+        title: `${pkg.title || pkg.name}${pkg.notes ? ` - ${pkg.notes}` : ""}`,
+        source: "香港开放数据",
+        kind: "开放数据",
+        sizeText: `${(pkg.resources || []).length} resources`,
+        date: pkg.metadata_modified || pkg.metadata_created,
+        heat: (pkg.resources || []).length,
+        link: `https://data.gov.hk/tc-data/dataset/${pkg.name}`,
+        tags: [pkg.title, pkg.name, pkg.notes, text(pkg.tags && pkg.tags.map(tag => tag.display_name), "")].join(" ")
+      }));
+    }
+
+    async function searchOpenverseImages(keyword) {
+      const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(keyword)}&page_size=12`;
+      const data = await requestJson(url);
+      return (data.results || []).map(item => remoteItem("openverse-img", {
+        title: item.title || item.creator || item.id,
+        source: "Openverse 图片",
+        kind: item.license ? `图片/${item.license}` : "图片",
+        sizeText: item.width && item.height ? `${item.width}x${item.height}` : "图片",
+        date: item.indexed_on || item.created_on,
+        heat: 0,
+        link: item.foreign_landing_url || item.url,
+        tags: [item.title, item.creator, item.provider, item.license, text(item.tags && item.tags.map(tag => tag.name), "")].join(" ")
+      }));
+    }
+
+    async function searchOpenverseAudio(keyword) {
+      const url = `https://api.openverse.org/v1/audio/?q=${encodeURIComponent(keyword)}&page_size=12`;
+      const data = await requestJson(url);
+      return (data.results || []).map(item => remoteItem("openverse-audio", {
+        title: item.title || item.creator || item.id,
+        source: "Openverse 音频",
+        kind: item.license ? `音频/${item.license}` : "音频",
+        sizeText: item.duration ? `${Math.round(item.duration)} 秒` : "音频",
+        date: item.indexed_on || item.created_on,
+        heat: 0,
+        link: item.foreign_landing_url || item.url,
+        tags: [item.title, item.creator, item.provider, item.license, text(item.tags && item.tags.map(tag => tag.name), "")].join(" ")
+      }));
+    }
+
+    async function searchMarkdownSource(keyword, config) {
+      const normalizedKeyword = normalize(keyword);
+      if (!normalizedKeyword) return [];
+      let markdown = markdownCache.get(config.raw);
+      if (!markdown) {
+        markdown = await requestText(config.raw);
+        markdownCache.set(config.raw, markdown);
+      }
+      const lines = markdown.split(/\r?\n/);
+      const matches = [];
+      let section = config.source;
+
+      lines.forEach((line, index) => {
+        const cleanLine = line.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        if (/^#{1,4}\s+/.test(cleanLine)) {
+          section = cleanLine.replace(/^#{1,4}\s+/, "").trim();
+        }
+        if (!cleanLine || cleanLine.length < 4 || !normalize(cleanLine).includes(normalizedKeyword)) return;
+        if (/^\|?\s*:?-+:?\s*\|/.test(cleanLine)) return;
+
+        const links = markdownLinks(cleanLine);
+        const targets = links.length ? links : [{ title: cleanMarkdown(cleanLine), url: config.home }];
+        targets.slice(0, 3).forEach(target => {
+          const absoluteUrl = absoluteMarkdownUrl(target.url, config.home);
+          matches.push(remoteItem(config.id, {
+            title: `${target.title} - ${section}`,
+            source: config.source,
+            kind: config.kind,
+            sizeText: "GitHub 清单",
+            date: "2026-01-01",
+            heat: Math.max(1, 1000 - index),
+            link: absoluteUrl,
+            tags: `${cleanLine} ${section} ${config.label}`
+          }));
+        });
+      });
+
+      return dedupeRows(matches).slice(0, 18);
+    }
+
+    function markdownLinks(line) {
+      const links = [];
+      const re = /\[([^\]]+)]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+      let match;
+      while ((match = re.exec(line))) {
+        const title = cleanMarkdown(match[1]);
+        const url = match[2].trim();
+        if (title && url && !url.startsWith("#")) links.push({ title, url });
+      }
+      return links;
+    }
+
+    function cleanMarkdown(value) {
+      return String(value || "")
+        .replace(/!\[([^\]]*)]\([^)]+\)/g, "$1")
+        .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+        .replace(/[`*_>#|~-]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 140);
+    }
+
+    function absoluteMarkdownUrl(url, home) {
+      if (/^https?:\/\//i.test(url)) return url;
+      try {
+        return new URL(url, `${home}/`).toString();
+      } catch {
+        return home;
+      }
+    }
+
+    async function searchCustomConnector(keyword, config) {
+      if (config.type === "pansou") return searchPansouConnector(keyword, config);
+      if (config.type === "alist") return searchAListConnector(keyword, config);
+      if (config.type === "searxng") return searchSearxngConnector(keyword, config);
+      if (config.type === "torznab") return searchTorznabConnector(keyword, config);
+      return searchGenericJsonConnector(keyword, config);
+    }
+
+    async function searchPansouConnector(keyword, config) {
+      const url = joinUrl(config.url, "/api/search");
+      const headers = { "Content-Type": "application/json" };
+      if (config.token) headers.Authorization = config.token.startsWith("Bearer ") ? config.token : `Bearer ${config.token}`;
+      const data = await requestJson(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ kw: keyword, res: "merge" })
+      });
+      const rows = [];
+      const merged = data.merged_by_type || {};
+      Object.entries(merged).forEach(([diskType, items]) => {
+        (Array.isArray(items) ? items : []).forEach((item, index) => {
+          rows.push(remoteItem(`pansou-${config.id}`, {
+            title: `${item.note || item.work_title || keyword}${item.password ? ` 提取码:${item.password}` : ""}`,
+            source: config.name,
+            kind: diskType,
+            sizeText: "网盘/磁力",
+            date: item.datetime,
+            heat: Math.max(1, 1000 - index),
+            link: item.url,
+            tags: [item.note, item.work_title, item.source, diskType, item.password].join(" ")
+          }));
+        });
+      });
+      if (!rows.length && Array.isArray(data.results)) {
+        data.results.forEach((message, index) => {
+          (message.links || []).forEach(link => {
+            rows.push(remoteItem(`pansou-${config.id}`, {
+              title: `${link.work_title || message.title || keyword}${link.password ? ` 提取码:${link.password}` : ""}`,
+              source: config.name,
+              kind: link.type || "网盘/磁力",
+              sizeText: "网盘/磁力",
+              date: link.datetime || message.datetime,
+              heat: Math.max(1, 1000 - index),
+              link: link.url,
+              tags: [message.channel, message.content, link.work_title, link.password].join(" ")
+            }));
+          });
+        });
+      }
+      return dedupeRows(rows).slice(0, 30);
+    }
+
+    async function searchAListConnector(keyword, config) {
+      const url = joinUrl(config.url, "/api/fs/search");
+      const headers = { "Content-Type": "application/json" };
+      if (config.token) headers.Authorization = config.token;
+      const data = await requestJson(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          parent: config.extra || "/",
+          keywords: keyword,
+          scope: 0,
+          page: 1,
+          per_page: 30
+        })
+      });
+      const content = data.data && (data.data.content || data.data.files || data.data.items) || data.content || data.results || [];
+      return (Array.isArray(content) ? content : []).map((item, index) => {
+        const path = item.parent ? `${item.parent.replace(/\/$/, "")}/${item.name}` : item.path || item.name;
+        const link = item.raw_url || item.url || joinUrl(config.url, `/d/${String(path || "").replace(/^\/+/, "")}`);
+        return remoteItem(`alist-${config.id}`, {
+          title: item.name || item.path || keyword,
+          source: config.name,
+          kind: item.is_dir ? "目录" : (item.type || "文件"),
+          sizeText: item.is_dir ? "目录" : bytesText(item.size),
+          date: item.modified || item.updated_at,
+          heat: Math.max(1, 1000 - index),
+          link,
+          tags: [item.name, item.path, item.parent, item.type].join(" ")
+        });
+      });
+    }
+
+    async function searchSearxngConnector(keyword, config) {
+      const base = config.url.includes("{q}")
+        ? config.url.replaceAll("{q}", encodeURIComponent(keyword))
+        : `${joinUrl(config.url, "/search")}?q=${encodeURIComponent(keyword)}&format=json`;
+      const data = await requestJson(base);
+      const items = data.results || [];
+      return items.slice(0, 30).map((item, index) => remoteItem(`searxng-${config.id}`, {
+        title: item.title || item.url || keyword,
+        source: config.name,
+        kind: item.engine || item.category || "元搜索",
+        sizeText: item.category || "网页",
+        date: item.publishedDate || item.published_date,
+        heat: Math.max(1, 1000 - index),
+        link: item.url,
+        tags: [item.title, item.content, item.engine, item.category].join(" ")
+      }));
+    }
+
+    async function searchTorznabConnector(keyword, config) {
+      let queryUrl = config.url.includes("{q}")
+        ? config.url.replaceAll("{q}", encodeURIComponent(keyword))
+        : `${config.url}${config.url.includes("?") ? "&" : "?"}t=search&q=${encodeURIComponent(keyword)}`;
+      if (config.token && !/[?&]apikey=/i.test(queryUrl)) {
+        queryUrl += `${queryUrl.includes("?") ? "&" : "?"}apikey=${encodeURIComponent(config.token)}`;
+      }
+      const xmlText = await requestText(queryUrl);
+      const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+      const items = Array.from(doc.querySelectorAll("item"));
+      return items.slice(0, 40).map((item, index) => {
+        const title = item.querySelector("title")?.textContent || keyword;
+        const guid = item.querySelector("guid")?.textContent || "";
+        const link = item.querySelector("link")?.textContent || guid;
+        const pubDate = item.querySelector("pubDate")?.textContent || "";
+        const size = item.querySelector("size")?.textContent || item.querySelector("enclosure")?.getAttribute("length") || "";
+        const attrs = Array.from(item.querySelectorAll("attr, torznab\\:attr")).reduce((acc, attr) => {
+          const name = attr.getAttribute("name");
+          const value = attr.getAttribute("value");
+          if (name && value) acc[name] = value;
+          return acc;
+        }, {});
+        return remoteItem(`torznab-${config.id}`, {
+          title,
+          source: config.name,
+          kind: attrs.category || attrs.seeders ? "Torznab 结果" : "RSS 结果",
+          sizeText: bytesText(size),
+          date: pubDate,
+          heat: Number(attrs.seeders || attrs.grabs || Math.max(1, 1000 - index)),
+          link,
+          tags: [title, item.querySelector("description")?.textContent, attrs.category, attrs.indexer].join(" ")
+        });
+      });
+    }
+
+    async function searchGenericJsonConnector(keyword, config) {
+      const url = (config.url.includes("{q}") ? config.url.replaceAll("{q}", encodeURIComponent(keyword)) : `${config.url}${config.url.includes("?") ? "&" : "?"}q=${encodeURIComponent(keyword)}`);
+      const data = await requestJson(url);
+      const items = extractGenericItems(data, config.extra);
+      return items.slice(0, 30).map((item, index) => remoteItem(`json-${config.id}`, {
+        title: item.title || item.name || item.note || item.description || item.filename || keyword,
+        source: config.name,
+        kind: item.type || item.kind || item.category || item.mime || "JSON 结果",
+        sizeText: item.sizeText || item.size || item.length || "接口",
+        date: item.date || item.datetime || item.time || item.updated_at || item.updated || item.modified,
+        heat: item.heat || item.score || item.stars || item.downloads || Math.max(1, 1000 - index),
+        link: item.url || item.link || item.href || item.html_url || item.download_url || item.path,
+        tags: JSON.stringify(item).slice(0, 500)
+      }));
+    }
+
+    function joinUrl(base, path) {
+      return `${String(base || "").replace(/\/+$/, "")}/${String(path || "").replace(/^\/+/, "")}`;
+    }
+
+    function extractGenericItems(data, path) {
+      const byPath = path ? getByPath(data, path) : null;
+      if (Array.isArray(byPath)) return byPath;
+      const common = [
+        data,
+        data && data.data,
+        data && data.result,
+        data && data.results,
+        data && data.items,
+        data && data.list,
+        data && data.records,
+        data && data.response && data.response.docs,
+        data && data.data && data.data.items,
+        data && data.data && data.data.list,
+        data && data.data && data.data.results,
+        data && data.result && data.result.results
+      ];
+      for (const candidate of common) {
+        if (Array.isArray(candidate)) return candidate;
+      }
+      return findFirstObjectArray(data) || [];
+    }
+
+    function getByPath(data, path) {
+      return String(path || "").split(".").filter(Boolean).reduce((value, key) => value && value[key], data);
+    }
+
+    function findFirstObjectArray(value, depth = 0) {
+      if (depth > 4 || !value || typeof value !== "object") return null;
+      if (Array.isArray(value) && value.some(item => item && typeof item === "object")) return value;
+      if (Array.isArray(value)) return null;
+      for (const child of Object.values(value)) {
+        const found = findFirstObjectArray(child, depth + 1);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    async function searchOpenAlex(keyword) {
+      const url = `https://api.openalex.org/works?search=${encodeURIComponent(keyword)}&per-page=12`;
+      const data = await requestJson(url);
+      return (data.results || []).map(work => {
+        const authors = (work.authorships || [])
+          .slice(0, 4)
+          .map(item => item.author && item.author.display_name)
+          .filter(Boolean);
+        const concepts = (work.concepts || [])
+          .slice(0, 6)
+          .map(item => item.display_name)
+          .filter(Boolean);
+        return remoteItem("openalex", {
+          title: work.display_name,
+          source: "OpenAlex",
+          kind: work.type || "论文",
+          sizeText: "论文",
+          date: work.publication_date || work.publication_year,
+          heat: work.cited_by_count,
+          link: (work.primary_location && work.primary_location.landing_page_url) || work.doi || work.id,
+          tags: [work.display_name, ...authors, ...concepts].join(" ")
+        });
+      });
+    }
+
+    async function searchOpenLibrary(keyword) {
+      const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(keyword)}&limit=12`;
+      const data = await requestJson(url);
+      return (data.docs || []).map(book => remoteItem("openlibrary", {
+        title: book.title,
+        source: "Open Library",
+        kind: "图书",
+        sizeText: "图书",
+        date: book.first_publish_year,
+        heat: book.edition_count,
+        link: book.key ? `https://openlibrary.org${book.key}` : "",
+        tags: [book.title, text(book.author_name, ""), text(book.subject, "")].join(" ")
+      }));
+    }
+
+    async function searchWikimediaCommons(keyword) {
+      const params = new URLSearchParams({
+        action: "query",
+        format: "json",
+        origin: "*",
+        generator: "search",
+        gsrsearch: keyword,
+        gsrnamespace: "6",
+        gsrlimit: "12",
+        prop: "imageinfo",
+        iiprop: "url|mime|size|timestamp"
+      });
+      const data = await requestJson(`https://commons.wikimedia.org/w/api.php?${params.toString()}`);
+      const pages = Object.values((data.query && data.query.pages) || {});
+      return pages.map(page => {
+        const info = (page.imageinfo && page.imageinfo[0]) || {};
+        const pageName = encodeURIComponent(String(page.title || "").replaceAll(" ", "_")).replaceAll("%2F", "/");
+        return remoteItem("commons", {
+          title: String(page.title || "").replace(/^File:/, ""),
+          source: "Wikimedia Commons",
+          kind: info.mime || "媒体素材",
+          sizeText: bytesText(info.size),
+          date: info.timestamp,
+          heat: Math.max(0, 100 - Number(page.index || 0)),
+          link: `https://commons.wikimedia.org/wiki/${pageName}`,
+          tags: page.title
+        });
+      });
+    }
+
+    async function searchCrossref(keyword) {
+      const url = `https://api.crossref.org/works?query=${encodeURIComponent(keyword)}&rows=12`;
+      const data = await requestJson(url);
+      const items = (data.message && data.message.items) || [];
+      return items.map(work => {
+        const authors = (work.author || [])
+          .slice(0, 4)
+          .map(item => [item.given, item.family].filter(Boolean).join(" "))
+          .filter(Boolean);
+        return remoteItem("crossref", {
+          title: work.title && work.title[0],
+          source: "Crossref",
+          kind: work.type || "论文",
+          sizeText: "论文",
+          date: dateFromParts(work.published || work["published-print"] || work["published-online"]),
+          heat: work["is-referenced-by-count"],
+          link: work.URL || (work.DOI ? `https://doi.org/${work.DOI}` : ""),
+          tags: [text(work.title, ""), text(work.subject, ""), ...authors].join(" ")
+        });
+      });
+    }
+
+    async function searchGutendex(keyword) {
+      const url = `https://gutendex.com/books/?search=${encodeURIComponent(keyword)}`;
+      const data = await requestJson(url);
+      return (data.results || []).slice(0, 12).map(book => {
+        const formats = book.formats || {};
+        const html = formats["text/html"] || Object.entries(formats).find(([type]) => type.includes("text/html"))?.[1];
+        const authors = (book.authors || []).map(item => item.name).filter(Boolean);
+        return remoteItem("gutenberg", {
+          title: book.title,
+          source: "Project Gutenberg",
+          kind: "电子书",
+          sizeText: "电子书",
+          date: "1971-01-01",
+          heat: book.download_count,
+          link: html || `https://www.gutenberg.org/ebooks/${book.id}`,
+          tags: [book.title, ...authors, text(book.bookshelves, ""), text(book.subjects, "")].join(" ")
+        });
+      });
+    }
+
+    async function searchLibraryOfCongress(keyword) {
+      const url = `https://www.loc.gov/search/?fo=json&c=12&q=${encodeURIComponent(keyword)}`;
+      const data = await requestJson(url);
+      return (data.results || []).map(item => remoteItem("loc", {
+        title: item.title,
+        source: "Library of Congress",
+        kind: text(item.original_format, "馆藏资料"),
+        sizeText: "馆藏",
+        date: item.date || item.created_published_date,
+        heat: 0,
+        link: item.url,
+        tags: [item.title, text(item.subject, ""), text(item.contributor, "")].join(" ")
+      }));
+    }
+
+    async function searchInternetArchive(keyword) {
+      const params = new URLSearchParams({
+        q: keyword,
+        rows: "12",
+        page: "1",
+        output: "json"
+      });
+      ["identifier", "title", "date", "mediatype", "downloads", "creator"].forEach(field => params.append("fl[]", field));
+      const data = await requestJson(`https://archive.org/advancedsearch.php?${params.toString()}`);
+      const docs = (data.response && data.response.docs) || [];
+      return docs.map(item => remoteItem("archive", {
+        title: item.title || item.identifier,
+        source: "Internet Archive",
+        kind: item.mediatype || "公开资料",
+        sizeText: "资料",
+        date: item.date,
+        heat: item.downloads,
+        link: item.identifier ? `https://archive.org/details/${item.identifier}` : "",
+        tags: [item.title, item.identifier, text(item.creator, "")].join(" ")
+      }));
+    }
+
+    function renderRows() {
+      dom.rows.innerHTML = "";
+      if (!currentRows.length) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 6;
+        td.className = "empty";
+        td.textContent = "没有找到结果。可以换个关键词，或者在右侧添加自己的资源。";
+        tr.appendChild(td);
+        dom.rows.appendChild(tr);
+        return;
+      }
+
+      for (const item of currentRows) {
+        const tr = document.createElement("tr");
+        tr.dataset.id = item.id;
+        if (item.id === selectedId) tr.classList.add("selected");
+        tr.innerHTML = `
+          <td title="${escapeHtml(item.sizeText)}">${escapeHtml(item.sizeText)}</td>
+          <td title="${escapeHtml(item.date)}">${escapeHtml(item.date)}</td>
+          <td class="col-heat" title="${escapeHtml(item.heat)}">${escapeHtml(item.heat)}</td>
+          <td title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</td>
+          <td title="${escapeHtml(item.source)}">${escapeHtml(item.source)}</td>
+          <td title="${escapeHtml(item.kind)}">${escapeHtml(item.kind)}</td>
+        `;
+        tr.addEventListener("click", () => selectRow(item.id));
+        tr.addEventListener("dblclick", () => openResource(item));
+        tr.addEventListener("contextmenu", event => {
+          event.preventDefault();
+          selectRow(item.id);
+          showContextMenu(event.clientX, event.clientY);
+        });
+        dom.rows.appendChild(tr);
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function selectRow(id) {
+      selectedId = id;
+      renderRows();
+      const item = allData().find(row => row.id === id);
+      if (item) setStatus(`已选中：${item.title}`);
+    }
+
+    function selectedItem() {
+      return allData().find(item => item.id === selectedId);
+    }
+
+    function showContextMenu(x, y) {
+      const menu = dom.contextMenu;
+      menu.style.display = "block";
+      const width = menu.offsetWidth;
+      const height = menu.offsetHeight;
+      const left = Math.min(x, window.innerWidth - width - 8);
+      const top = Math.min(y, window.innerHeight - height - 8);
+      menu.style.left = `${Math.max(8, left)}px`;
+      menu.style.top = `${Math.max(8, top)}px`;
+    }
+
+    function hideContextMenu() {
+      dom.contextMenu.style.display = "none";
+    }
+
+    function setStatus(text) {
+      dom.statusText.textContent = text;
+      dom.doneText.textContent = "操作完成";
+    }
+
+    function toast(text) {
+      dom.toast.textContent = text;
+      dom.toast.classList.add("show");
+      window.clearTimeout(toast.timer);
+      toast.timer = window.setTimeout(() => dom.toast.classList.remove("show"), 1600);
+    }
+
+    async function copyText(text, label) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      toast(`${label}已复制`);
+      setStatus(`${label}已复制。`);
+    }
+
+    function openResource(item) {
+      if (!item || !item.link) return;
+      window.open(item.link, "_blank", "noopener,noreferrer");
+      setStatus(`正在打开：${item.title}`);
+    }
+
+    function addBookmark(item) {
+      if (!item) return;
+      if (!bookmarks.some(entry => entry.id === item.id)) {
+        bookmarks.unshift({
+          id: item.id,
+          title: item.title,
+          source: item.source,
+          link: item.link
+        });
+        saveJson(BOOKMARK_KEY, bookmarks);
+        renderBookmarks();
+      }
+      toast("已加入收藏夹");
+      setStatus(`已收藏：${item.title}`);
+    }
+
+    function renderBookmarks() {
+      dom.bookmarkList.innerHTML = "";
+      if (!bookmarks.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "还没有收藏。右键结果可以加入收藏夹。";
+        dom.bookmarkList.appendChild(empty);
+        return;
+      }
+      for (const item of bookmarks) {
+        const node = document.createElement("div");
+        node.className = "bookmark";
+        node.innerHTML = `
+          <b>${escapeHtml(item.title)}</b>
+          <span>${escapeHtml(item.source)}</span>
+          <div class="row-buttons">
+            <button data-open="${escapeHtml(item.link)}">打开</button>
+            <button data-copy="${escapeHtml(item.link)}">复制</button>
+          </div>
+        `;
+        node.querySelector("[data-open]").addEventListener("click", () => {
+          window.open(item.link, "_blank", "noopener,noreferrer");
+        });
+        node.querySelector("[data-copy]").addEventListener("click", () => copyText(item.link, "链接"));
+        dom.bookmarkList.appendChild(node);
+      }
+    }
+
+    function renderConnectorList() {
+      dom.connectorList.innerHTML = "";
+      if (!customSourceConfigs.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "还没有外部接口源。";
+        dom.connectorList.appendChild(empty);
+        return;
+      }
+      for (const config of customSourceConfigs) {
+        const node = document.createElement("div");
+        node.className = "source-pill";
+        node.innerHTML = `
+          <span title="${escapeHtml(config.url)}">${escapeHtml(config.name)} · ${escapeHtml(config.type)}</span>
+          <button data-remove-source="${escapeHtml(config.id)}">删除</button>
+        `;
+        node.querySelector("button").addEventListener("click", () => removeConnector(config.id));
+        dom.connectorList.appendChild(node);
+      }
+    }
+
+    function addConnector() {
+      const type = dom.connectorType.value;
+      const name = dom.connectorName.value.trim();
+      const url = dom.connectorUrl.value.trim();
+      const tokenOrPath = dom.connectorToken.value.trim();
+      if (!name || !url) {
+        toast("请填写名称和接口地址");
+        return;
+      }
+      if (!/^https?:\/\//i.test(url)) {
+        toast("接口地址需要以 http:// 或 https:// 开头");
+        return;
+      }
+      const config = {
+        id: `source-${Date.now()}`,
+        type,
+        name,
+        url,
+        token: type === "json" ? "" : tokenOrPath,
+        extra: type === "json" ? tokenOrPath : "/"
+      };
+      customSourceConfigs.unshift(config);
+      saveJson(CUSTOM_SOURCE_KEY, customSourceConfigs);
+      dom.connectorName.value = "";
+      dom.connectorUrl.value = "";
+      dom.connectorToken.value = "";
+      fillSources();
+      renderConnectorList();
+      toast("外部接口源已接入");
+    }
+
+    function removeConnector(id) {
+      customSourceConfigs = customSourceConfigs.filter(item => item.id !== id);
+      saveJson(CUSTOM_SOURCE_KEY, customSourceConfigs);
+      fillSources();
+      renderConnectorList();
+      search();
+      toast("外部接口源已删除");
+    }
+
+    function parseMeta(meta) {
+      const parts = String(meta || "").split("/").map(part => part.trim()).filter(Boolean);
+      return {
+        sizeText: parts[0] || "未知",
+        kind: parts[1] || "自定义",
+        source: parts[2] || "我的资源库"
+      };
+    }
+
+    function addCustomResource() {
+      const title = dom.newTitle.value.trim();
+      const link = dom.newLink.value.trim();
+      if (!title || !link) {
+        toast("请填写标题和链接");
+        return;
+      }
+      const meta = parseMeta(dom.newMeta.value);
+      const item = {
+        id: `custom-${Date.now()}`,
+        title,
+        source: meta.source,
+        kind: meta.kind,
+        sizeText: meta.sizeText,
+        size: Number.parseFloat(meta.sizeText) || 0,
+        date: new Date().toISOString().slice(0, 10),
+        heat: 1,
+        link,
+        tags: `${title} ${meta.kind} ${meta.source}`,
+        valid: true,
+        custom: true
+      };
+      customData.unshift(item);
+      saveJson(STORAGE_KEY, customData);
+      dom.newTitle.value = "";
+      dom.newLink.value = "";
+      dom.newMeta.value = "";
+      fillSources();
+      search();
+      toast("资源已添加");
+    }
+
+    function markInvalid(item) {
+      if (!item) return;
+      const custom = customData.find(row => row.id === item.id);
+      if (custom) {
+        custom.valid = false;
+        saveJson(STORAGE_KEY, customData);
+      } else {
+        item.valid = false;
+      }
+      search();
+      toast("已标记为失效");
+    }
+
+    function exportData() {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        resources: customData,
+        bookmarks,
+        customSourceConfigs
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "resource-search-data.json";
+      link.click();
+      URL.revokeObjectURL(url);
+      setStatus("自建资源和收藏夹已导出。");
+    }
+
+    function importData(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const payload = JSON.parse(reader.result);
+          const resources = Array.isArray(payload) ? payload : payload.resources;
+          if (!Array.isArray(resources)) throw new Error("Invalid JSON");
+          const cleaned = resources
+            .filter(item => item.title && item.link)
+            .map(item => ({
+              id: item.id || `custom-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+              title: String(item.title),
+              source: String(item.source || "我的资源库"),
+              kind: String(item.kind || "自定义"),
+              sizeText: String(item.sizeText || "未知"),
+              size: Number(item.size || 0),
+              date: String(item.date || new Date().toISOString().slice(0, 10)),
+              heat: Number(item.heat || 1),
+              link: String(item.link),
+              tags: String(item.tags || item.title),
+              valid: item.valid !== false,
+              custom: true
+            }));
+          customData = [...cleaned, ...customData];
+          if (Array.isArray(payload.customSourceConfigs)) {
+            customSourceConfigs = [...payload.customSourceConfigs, ...customSourceConfigs];
+            saveJson(CUSTOM_SOURCE_KEY, customSourceConfigs);
+          }
+          saveJson(STORAGE_KEY, customData);
+          fillSources();
+          renderConnectorList();
+          search();
+          toast(`已导入 ${cleaned.length} 条`);
+        } catch {
+          toast("导入失败，请检查 JSON 格式");
+        }
+      };
+      reader.readAsText(file, "utf-8");
+    }
+
+    document.querySelectorAll(".chip").forEach(button => {
+      button.addEventListener("click", () => {
+        dom.keyword.value = button.dataset.keyword;
+        search();
+      });
+    });
+
+    document.querySelectorAll("th[data-sort]").forEach(th => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.sort;
+        if (sortState.key === key) {
+          sortState.direction = sortState.direction === "asc" ? "desc" : "asc";
+        } else {
+          sortState = { key, direction: key === "title" ? "asc" : "desc" };
+        }
+        search();
+      });
+    });
+
+    dom.searchBtn.addEventListener("click", search);
+    dom.keyword.addEventListener("keydown", event => {
+      if (event.key === "Enter") search();
+    });
+    dom.pauseBtn.addEventListener("click", () => {
+      dom.keyword.value = "";
+      dom.sourceFilter.value = "all";
+      dom.minHeat.value = "0";
+      search();
+    });
+    [dom.sourceFilter, dom.exactMatch, dom.regexMatch, dom.onlineSources, dom.hideInvalid, dom.minHeat].forEach(input => {
+      input.addEventListener("input", search);
+      input.addEventListener("change", search);
+    });
+    dom.addBtn.addEventListener("click", addCustomResource);
+    dom.addConnectorBtn.addEventListener("click", addConnector);
+    dom.clearConnectorBtn.addEventListener("click", () => {
+      customSourceConfigs = [];
+      saveJson(CUSTOM_SOURCE_KEY, customSourceConfigs);
+      fillSources();
+      renderConnectorList();
+      search();
+      toast("外部接口源已清空");
+    });
+    dom.importBtn.addEventListener("click", () => dom.importFile.click());
+    dom.importFile.addEventListener("change", () => {
+      const file = dom.importFile.files[0];
+      if (file) importData(file);
+      dom.importFile.value = "";
+    });
+    dom.exportBtn.addEventListener("click", exportData);
+    dom.clearCustomBtn.addEventListener("click", () => {
+      customData = [];
+      saveJson(STORAGE_KEY, customData);
+      fillSources();
+      search();
+      toast("自建资源已清空");
+    });
+
+    dom.contextMenu.addEventListener("click", event => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const item = selectedItem();
+      const action = button.dataset.action;
+      if (action === "open") openResource(item);
+      if (action === "copyLink" && item) copyText(item.link, "链接");
+      if (action === "copyTitle" && item) copyText(item.title, "名称");
+      if (action === "favorite") addBookmark(item);
+      if (action === "report") markInvalid(item);
+      hideContextMenu();
+    });
+
+    document.addEventListener("click", event => {
+      if (!event.target.closest("#contextMenu")) hideContextMenu();
+    });
+
+    window.addEventListener("resize", hideContextMenu);
+
+    fillSources();
+    renderConnectorList();
+    renderBookmarks();
+    search();
+    renderRuntimeWarning();
+  </script>
+</body>
+</html>
