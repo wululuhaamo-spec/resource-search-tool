@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build package and manifest
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart("v")
+          $repo = "${{ github.repository }}"
+          $zipName = "resource-search-tool-$version.zip"
+          $dist = "dist"
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+
+          $manifestUrl = "https://github.com/$repo/releases/latest/download/latest.json"
+          $config = Get-Content "app-version.json" -Raw | ConvertFrom-Json
+          $config.version = $version
+          $config.manifest_url = $manifestUrl
+          $config | ConvertTo-Json -Depth 10 | Set-Content "app-version.json" -Encoding UTF8
+
+          $files = @(
+            "index.html",
+            "server.py",
+            "launcher.py",
+            "start-tool.bat",
+            "app-version.json",
+            "SEARCH_SOURCES.md"
+          )
+          Compress-Archive -Path $files -DestinationPath "$dist/$zipName" -Force
+          $sha = (Get-FileHash "$dist/$zipName" -Algorithm SHA256).Hash.ToLower()
+          $size = (Get-Item "$dist/$zipName").Length
+          $packageUrl = "https://github.com/$repo/releases/download/$tag/$zipName"
+
+          $latest = [ordered]@{
+            name = "resource-search-tool"
+            version = $version
+            channel = "stable"
+            package_url = $packageUrl
+            sha256 = $sha
+            size = $size
+            published_at = (Get-Date).ToUniversalTime().ToString("o")
+          }
+          $latest | ConvertTo-Json -Depth 10 | Set-Content "$dist/latest.json" -Encoding UTF8
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.zip
+            dist/latest.json
+          generate_release_notes: true
