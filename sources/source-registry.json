@@ -1,0 +1,52 @@
+{
+  "name": "resource-search-tool source registry",
+  "version": "2026.06.14",
+  "updated_at": "2026-06-14",
+  "sources": [
+    {
+      "id": "awesome-public-datasets",
+      "type": "markdown",
+      "name": "公开数据集清单",
+      "label": "awesomedata/awesome-public-datasets",
+      "kind": "公开数据集",
+      "home": "https://github.com/awesomedata/awesome-public-datasets",
+      "raw": "https://raw.githubusercontent.com/awesomedata/awesome-public-datasets/master/README.rst"
+    },
+    {
+      "id": "public-realtime-datasets",
+      "type": "markdown",
+      "name": "实时公开数据源",
+      "label": "bytewax/awesome-public-real-time-datasets",
+      "kind": "实时数据源",
+      "home": "https://github.com/bytewax/awesome-public-real-time-datasets",
+      "raw": "https://raw.githubusercontent.com/bytewax/awesome-public-real-time-datasets/main/README.md"
+    },
+    {
+      "id": "chinese-nlp-corpus",
+      "type": "markdown",
+      "name": "中文语料与数据集",
+      "label": "InsaneLife/ChineseNLPCorpus",
+      "kind": "中文数据集",
+      "home": "https://github.com/InsaneLife/ChineseNLPCorpus",
+      "raw": "https://raw.githubusercontent.com/InsaneLife/ChineseNLPCorpus/master/README.md"
+    },
+    {
+      "id": "clue-dataset-search",
+      "type": "markdown",
+      "name": "CLUE 中文数据集",
+      "label": "CLUEbenchmark/CLUEDatasetSearch",
+      "kind": "中文数据集",
+      "home": "https://github.com/CLUEbenchmark/CLUEDatasetSearch",
+      "raw": "https://raw.githubusercontent.com/CLUEbenchmark/CLUEDatasetSearch/master/README.md"
+    },
+    {
+      "id": "awesome-llm-resources",
+      "type": "markdown",
+      "name": "LLM 工具与资源",
+      "label": "WangRongsheng/awesome-LLM-resources",
+      "kind": "AI 资源",
+      "home": "https://github.com/WangRongsheng/awesome-LLM-resources",
+      "raw": "https://raw.githubusercontent.com/WangRongsheng/awesome-LLM-resources/main/README.md"
+    }
+  ]
+}
