@@ -35,6 +35,18 @@
 | Torznab / Jackett / Prowlarr | 自建索引器、RSS/Torznab 搜索 | 可填完整模板，例如 `http://localhost:9117/api/v2.0/indexers/all/results/torznab/api?t=search&q={q}`，API key 可写在 URL 或令牌栏。 |
 | 通用 JSON GET | 任何返回 JSON 的搜索接口 | 接口地址可用 `{q}` 作为关键词占位，例如 `https://example.com/search?q={q}`；令牌栏可填数组路径，如 `data.items`。 |
 
+## 源订阅和自动刷新
+
+工具启动后会自动读取远程源清单：
+
+```text
+https://raw.githubusercontent.com/wululuhaamo-spec/resource-search-tool/main/sources/source-registry.json
+```
+
+这个清单支持 `markdown`、`PanSou`、`AList/OpenList`、`SearXNG`、`Torznab`、`Generic JSON` 等源配置。也就是说，多数情况下只需要更新源清单，不需要修改程序本体。
+
+界面右侧的 `源订阅` 可以手动刷新，也可以添加新的源清单 URL。
+
 ## GitHub 上值得关注的项目方向
 
 | 项目/方向 | 用法建议 |

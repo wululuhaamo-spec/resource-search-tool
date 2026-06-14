@@ -12,6 +12,16 @@ This folder is ready to publish as a GitHub repository.
 6. It backs up current files, replaces them, and starts the app.
 7. If replacement fails, it restores the backup.
 
+## How source updates work
+
+The app also has source subscriptions. On startup it fetches:
+
+```text
+https://raw.githubusercontent.com/wululuhaamo-spec/resource-search-tool/main/sources/source-registry.json
+```
+
+Most source changes can be made by updating that JSON file, without publishing a new app release.
+
 ## Required GitHub URL
 
 This repository is configured to use:
@@ -24,14 +34,15 @@ This repository is configured to use:
 
 If you fork or move the repository later, update this URL to the new `OWNER/REPO`.
 
-## Publish a new version
+## Publish a new version without command line
 
-Commit your changes, then create and push a tag:
+Open the GitHub repository:
 
-```powershell
-git tag v1.0.3
-git push origin v1.0.3
-```
+1. Go to `Actions`.
+2. Open `Release`.
+3. Click `Run workflow`.
+4. Enter a version number, for example `1.0.3`.
+5. Click the green `Run workflow` button.
 
 GitHub Actions will create a Release with:
 

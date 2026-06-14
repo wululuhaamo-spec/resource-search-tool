@@ -600,6 +600,20 @@
         </section>
 
         <section class="side-section">
+          <h2>源订阅</h2>
+          <div class="field">
+            <label for="sourceRegistryUrl">订阅地址</label>
+            <input id="sourceRegistryUrl" placeholder="https://.../source-registry.json" />
+          </div>
+          <div class="row-buttons">
+            <button id="refreshSourcesBtn" class="primary">刷新源</button>
+            <button id="addSubscriptionBtn">订阅</button>
+          </div>
+          <p id="sourceSyncStatus" class="helptext">启动后自动同步远程源列表，尽量少靠程序发新版。</p>
+          <div id="subscriptionList" class="source-list"></div>
+        </section>
+
+        <section class="side-section">
           <h2>外部接口源</h2>
           <div class="field">
             <label for="connectorType">接口类型</label>
@@ -665,6 +679,19 @@
     const STORAGE_KEY = "local-resource-search-tool-v01";
     const BOOKMARK_KEY = "local-resource-search-bookmarks-v01";
     const CUSTOM_SOURCE_KEY = "local-resource-search-custom-sources-v01";
+    const REMOTE_SOURCE_KEY = "local-resource-search-remote-sources-v01";
+    const SOURCE_SUBSCRIPTION_KEY = "local-resource-search-source-subscriptions-v01";
+    const SOURCE_SYNC_KEY = "local-resource-search-source-sync-v01";
+    const DEFAULT_SOURCE_REGISTRY_URL = "https://raw.githubusercontent.com/wululuhaamo-spec/resource-search-tool/main/sources/source-registry.json";
+    const LOCAL_SOURCE_REGISTRY_URL = "sources/source-registry.json";
+    const DEFAULT_SOURCE_SUBSCRIPTIONS = [
+      {
+        id: "official-source-registry",
+        name: "默认源订阅",
+        url: DEFAULT_SOURCE_REGISTRY_URL,
+        enabled: true
+      }
+    ];
 
     const seedData = [
       {
@@ -862,6 +889,9 @@
     let customData = loadJson(STORAGE_KEY, []);
     let bookmarks = loadJson(BOOKMARK_KEY, []);
     let customSourceConfigs = loadJson(CUSTOM_SOURCE_KEY, []);
+    let remoteSourceConfigs = loadJson(REMOTE_SOURCE_KEY, []);
+    let sourceSubscriptions = normalizeSubscriptions(loadJson(SOURCE_SUBSCRIPTION_KEY, DEFAULT_SOURCE_SUBSCRIPTIONS));
+    let sourceSyncInfo = loadJson(SOURCE_SYNC_KEY, {});
     let sortState = { key: "heat", direction: "desc" };
     let currentRows = [];
     let selectedId = null;
@@ -900,6 +930,11 @@
       connectorToken: document.querySelector("#connectorToken"),
       addConnectorBtn: document.querySelector("#addConnectorBtn"),
       clearConnectorBtn: document.querySelector("#clearConnectorBtn"),
+      sourceRegistryUrl: document.querySelector("#sourceRegistryUrl"),
+      addSubscriptionBtn: document.querySelector("#addSubscriptionBtn"),
+      refreshSourcesBtn: document.querySelector("#refreshSourcesBtn"),
+      sourceSyncStatus: document.querySelector("#sourceSyncStatus"),
+      subscriptionList: document.querySelector("#subscriptionList"),
       connectorList: document.querySelector("#connectorList"),
       bookmarkList: document.querySelector("#bookmarkList")
     };
@@ -916,6 +951,18 @@
       localStorage.setItem(key, JSON.stringify(value));
     }
 
+    function normalizeSubscriptions(value) {
+      const list = Array.isArray(value) && value.length ? value : DEFAULT_SOURCE_SUBSCRIPTIONS;
+      return list
+        .map(item => ({
+          id: String(item.id || `sub-${Date.now()}-${Math.random().toString(16).slice(2)}`),
+          name: String(item.name || "源订阅"),
+          url: String(item.url || "").trim(),
+          enabled: item.enabled !== false
+        }))
+        .filter(item => /^https?:\/\//i.test(item.url));
+    }
+
     function allData() {
       return [...seedData, ...customData];
     }
@@ -925,6 +972,7 @@
       const sources = [...new Set([
         ...allData().map(item => item.source),
         ...onlineSources.map(item => item.source),
+        ...remoteSourceConfigs.map(item => item.name),
         ...customSourceConfigs.map(item => item.name)
       ])].sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
       dom.sourceFilter.innerHTML = '<option value="all">全部资源库</option>';
@@ -1017,13 +1065,11 @@
     }
 
     async function searchOnlineSources(keyword, sourceFilter) {
-      const customAdapters = customSourceConfigs.map(config => ({
-        id: `custom-${config.id}`,
-        source: config.name,
-        label: config.name,
-        search: query => searchCustomConnector(query, config)
-      }));
-      const adapters = [...onlineSources, ...customAdapters]
+      const remoteAdapters = remoteSourceConfigs
+        .filter(config => config.enabled !== false)
+        .map(config => connectorAdapter(config, "remote"));
+      const customAdapters = customSourceConfigs.map(config => connectorAdapter(config, "custom"));
+      const adapters = [...onlineSources, ...remoteAdapters, ...customAdapters]
         .filter(item => sourceFilter === "all" || item.source === sourceFilter);
       const groups = await Promise.all(adapters.map(async adapter => {
         try {
@@ -1034,6 +1080,15 @@
       }));
       searchOnlineSources.lastFailed = groups.filter(item => !item.ok).map(item => item.label);
       return dedupeRows(groups.flatMap(item => item.rows));
+    }
+
+    function connectorAdapter(config, prefix) {
+      return {
+        id: `${prefix}-${config.id}`,
+        source: config.name,
+        label: config.name,
+        search: query => searchCustomConnector(query, config)
+      };
     }
 
     async function cachedOnlineSearch(adapter, keyword) {
@@ -1457,6 +1512,16 @@
     }
 
     async function searchCustomConnector(keyword, config) {
+      if (config.type === "markdown") {
+        return searchMarkdownSource(keyword, {
+          id: `remote-${config.id}`,
+          source: config.name,
+          label: config.label || config.name,
+          kind: config.kind || "清单",
+          home: config.home || config.url,
+          raw: config.raw || config.url
+        });
+      }
       if (config.type === "pansou") return searchPansouConnector(keyword, config);
       if (config.type === "alist") return searchAListConnector(keyword, config);
       if (config.type === "searxng") return searchSearxngConnector(keyword, config);
@@ -1969,6 +2034,147 @@
       }
     }
 
+    function renderSubscriptionList() {
+      dom.subscriptionList.innerHTML = "";
+      const count = remoteSourceConfigs.filter(item => item.enabled !== false).length;
+      const updated = sourceSyncInfo.updatedAt ? sourceSyncInfo.updatedAt.replace("T", " ").slice(0, 16) : "未同步";
+      dom.sourceSyncStatus.textContent = `远程源 ${count} 个，上次同步：${updated}${sourceSyncInfo.failed ? `；失败：${sourceSyncInfo.failed}` : ""}`;
+      if (!sourceSubscriptions.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "还没有源订阅。";
+        dom.subscriptionList.appendChild(empty);
+        return;
+      }
+      for (const subscription of sourceSubscriptions) {
+        const node = document.createElement("div");
+        node.className = "source-pill";
+        node.innerHTML = `
+          <span title="${escapeHtml(subscription.url)}">${escapeHtml(subscription.name)}</span>
+          <button data-remove-subscription="${escapeHtml(subscription.id)}">删除</button>
+        `;
+        node.querySelector("button").addEventListener("click", () => removeSubscription(subscription.id));
+        dom.subscriptionList.appendChild(node);
+      }
+    }
+
+    function addSubscription() {
+      const url = dom.sourceRegistryUrl.value.trim();
+      if (!/^https?:\/\//i.test(url)) {
+        toast("订阅地址需要以 http:// 或 https:// 开头");
+        return;
+      }
+      const subscription = {
+        id: `sub-${Date.now()}`,
+        name: url.includes("githubusercontent.com") ? "GitHub 源订阅" : "自定义源订阅",
+        url,
+        enabled: true
+      };
+      sourceSubscriptions = [subscription, ...sourceSubscriptions.filter(item => item.url !== url)];
+      saveJson(SOURCE_SUBSCRIPTION_KEY, sourceSubscriptions);
+      dom.sourceRegistryUrl.value = "";
+      renderSubscriptionList();
+      refreshRemoteSources();
+    }
+
+    function removeSubscription(id) {
+      sourceSubscriptions = sourceSubscriptions.filter(item => item.id !== id);
+      saveJson(SOURCE_SUBSCRIPTION_KEY, sourceSubscriptions);
+      refreshRemoteSources();
+    }
+
+    async function refreshRemoteSources(options = {}) {
+      const silent = options.silent === true;
+      const collected = [];
+      const failed = [];
+      for (const subscription of sourceSubscriptions.filter(item => item.enabled !== false)) {
+        try {
+          const sources = await fetchSourceRegistry(subscription);
+          sources.forEach((source, index) => {
+            const config = normalizeRemoteSource(source, subscription, index);
+            if (config) collected.push(config);
+          });
+        } catch {
+          failed.push(subscription.name);
+        }
+      }
+      remoteSourceConfigs = dedupeSourceConfigs(collected);
+      sourceSyncInfo = {
+        updatedAt: new Date().toISOString(),
+        count: remoteSourceConfigs.length,
+        failed: failed.join("、")
+      };
+      saveJson(REMOTE_SOURCE_KEY, remoteSourceConfigs);
+      saveJson(SOURCE_SYNC_KEY, sourceSyncInfo);
+      fillSources();
+      renderSubscriptionList();
+      if (!silent) {
+        toast(`远程源已刷新：${remoteSourceConfigs.length} 个`);
+        setStatus(`远程源已刷新：${remoteSourceConfigs.length} 个${failed.length ? `；失败：${failed.join("、")}` : ""}`);
+      }
+    }
+
+    async function fetchSourceRegistry(subscription) {
+      try {
+        const payload = await requestJson(subscription.url);
+        const sources = Array.isArray(payload) ? payload : payload.sources;
+        if (!Array.isArray(sources)) throw new Error("Invalid source registry");
+        return sources;
+      } catch (error) {
+        if (subscription.url !== DEFAULT_SOURCE_REGISTRY_URL) throw error;
+        const fallback = await requestJson(LOCAL_SOURCE_REGISTRY_URL);
+        const sources = Array.isArray(fallback) ? fallback : fallback.sources;
+        if (!Array.isArray(sources)) throw new Error("Invalid local source registry");
+        return sources;
+      }
+    }
+
+    function normalizeRemoteSource(source, subscription, index) {
+      const type = String(source.type || "").trim().toLowerCase();
+      const allowed = ["pansou", "alist", "searxng", "torznab", "json", "markdown"];
+      if (!allowed.includes(type)) return null;
+      const name = text(source.name || source.source || source.label, "");
+      if (!name) return null;
+      if (type === "markdown") {
+        const raw = text(source.raw || source.url, "");
+        if (!/^https?:\/\//i.test(raw)) return null;
+        return {
+          id: source.id || stableId(`remote-${subscription.id}-${index}`, `${type}:${name}:${raw}`),
+          type,
+          name,
+          label: text(source.label, name),
+          url: raw,
+          raw,
+          home: text(source.home, raw),
+          kind: text(source.kind, "清单"),
+          enabled: source.enabled !== false,
+          remote: true
+        };
+      }
+      const url = text(source.url, "");
+      if (!/^https?:\/\//i.test(url)) return null;
+      return {
+        id: source.id || stableId(`remote-${subscription.id}-${index}`, `${type}:${name}:${url}`),
+        type,
+        name,
+        url,
+        token: "",
+        extra: text(source.extra || source.path, type === "alist" ? "/" : ""),
+        enabled: source.enabled !== false,
+        remote: true
+      };
+    }
+
+    function dedupeSourceConfigs(sources) {
+      const seen = new Set();
+      return sources.filter(source => {
+        const key = normalize(`${source.type}:${source.name}:${source.url}`);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
     function addConnector() {
       const type = dom.connectorType.value;
       const name = dom.connectorName.value.trim();
@@ -2068,7 +2274,8 @@
         exportedAt: new Date().toISOString(),
         resources: customData,
         bookmarks,
-        customSourceConfigs
+        customSourceConfigs,
+        sourceSubscriptions
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -2108,9 +2315,14 @@
             customSourceConfigs = [...payload.customSourceConfigs, ...customSourceConfigs];
             saveJson(CUSTOM_SOURCE_KEY, customSourceConfigs);
           }
+          if (Array.isArray(payload.sourceSubscriptions)) {
+            sourceSubscriptions = normalizeSubscriptions([...payload.sourceSubscriptions, ...sourceSubscriptions]);
+            saveJson(SOURCE_SUBSCRIPTION_KEY, sourceSubscriptions);
+          }
           saveJson(STORAGE_KEY, customData);
           fillSources();
           renderConnectorList();
+          renderSubscriptionList();
           search();
           toast(`已导入 ${cleaned.length} 条`);
         } catch {
@@ -2155,6 +2367,8 @@
     });
     dom.addBtn.addEventListener("click", addCustomResource);
     dom.addConnectorBtn.addEventListener("click", addConnector);
+    dom.refreshSourcesBtn.addEventListener("click", () => refreshRemoteSources());
+    dom.addSubscriptionBtn.addEventListener("click", addSubscription);
     dom.clearConnectorBtn.addEventListener("click", () => {
       customSourceConfigs = [];
       saveJson(CUSTOM_SOURCE_KEY, customSourceConfigs);
@@ -2198,10 +2412,12 @@
     window.addEventListener("resize", hideContextMenu);
 
     fillSources();
+    renderSubscriptionList();
     renderConnectorList();
     renderBookmarks();
     search();
     renderRuntimeWarning();
+    refreshRemoteSources({ silent: true }).catch(() => renderSubscriptionList());
   </script>
 </body>
 </html>
